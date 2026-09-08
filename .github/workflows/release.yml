@@ -1,0 +1,50 @@
+name: Release
+
+# Builds an unsigned, ad-hoc-signed universal .app, zips it, and attaches it
+# to a GitHub Release. Triggered by pushing a tag like v1.0.0.
+#
+# Unsigned means Gatekeeper will show an "unidentified developer" warning on
+# first launch (fixed by right-click -> Open once, or `xattr -cr` — see
+# README). Add code signing + notarization later without changing this
+# trigger or the Cask's install flow.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build universal app bundle
+        run: UNIVERSAL=1 App/Scripts/build-app.sh
+
+      - name: Zip app bundle
+        id: zip
+        # No spaces in the asset filename, even though the bundle name
+        # itself ("Cover Artwall.app") has one — keeps the release URL
+        # simple for the Homebrew Cask.
+        run: |
+          cd App/dist
+          zip -r -y "CoverArtwall.app.zip" "Cover Artwall.app"
+          echo "sha256=$(shasum -a 256 "CoverArtwall.app.zip" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: App/dist/CoverArtwall.app.zip
+          body: |
+            SHA-256 of `CoverArtwall.app.zip`: `${{ steps.zip.outputs.sha256 }}`
+
+            Use this to update `sha256` in the Homebrew Cask (see `Casks/cover-artwall.rb`
+            in the tap repo).
+
+            Unsigned build: on first launch, right-click the app and choose **Open**
+            (or run `xattr -cr "/Applications/Cover Artwall.app"`) to get past the
+            Gatekeeper warning.

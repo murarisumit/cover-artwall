@@ -1,0 +1,13 @@
+# Swift Package Manager
+App/.build/
+App/dist/
+
+# Xcode / Swift
+*.xcodeproj
+.swiftpm/
+DerivedData/
+
+# macOS
+.DS_Store
+
+not-committed/
