@@ -4,13 +4,11 @@ import AppKit
 /// centered over a smooth color gradient derived from the art itself.
 /// Ported in-process from the original `compose-wallpaper` CLI tool.
 enum WallpaperCompositor {
-    static func render(cover: NSImage) -> NSImage? {
-        let displaySizes = NSScreen.screens.map {
-            CGSize(width: $0.frame.width * $0.backingScaleFactor, height: $0.frame.height * $0.backingScaleFactor)
-        }
-        let targetSize = displaySizes.max { $0.width * $0.height < $1.width * $1.height }
-            ?? CGSize(width: 2880, height: 1800)
-        let canvasSize = CGSize(width: max(1920, targetSize.width), height: max(1200, targetSize.height))
+    /// `targetSize` is one display's size in backing-store pixels — each
+    /// display gets a wallpaper in its own aspect ratio, so an ultrawide
+    /// next to a laptop doesn't get a cropped copy of the laptop's.
+    static func render(cover: NSImage, targetSize: CGSize) -> NSImage? {
+        let canvasSize = canvasSize(for: targetSize)
         let canvasRect = CGRect(origin: .zero, size: canvasSize)
         let width = Int(canvasSize.width)
         let height = Int(canvasSize.height)
@@ -70,6 +68,17 @@ enum WallpaperCompositor {
     static func jpegData(for image: NSImage, compressionFactor: CGFloat = 0.88) -> Data? {
         guard let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) else { return nil }
         return rep.representation(using: .jpeg, properties: [.compressionFactor: compressionFactor])
+    }
+
+    /// Small displays are rendered a little larger than life so the cover
+    /// stays crisp if the wallpaper is later shown on a bigger screen —
+    /// scaled uniformly, never stretched to a different aspect ratio.
+    private static func canvasSize(for targetSize: CGSize) -> CGSize {
+        guard targetSize.width > 0, targetSize.height > 0 else {
+            return CGSize(width: 2880, height: 1800)
+        }
+        let scale = max(1, 1920 / targetSize.width, 1200 / targetSize.height)
+        return CGSize(width: (targetSize.width * scale).rounded(), height: (targetSize.height * scale).rounded())
     }
 
     private static func drawAspectFill(_ image: NSImage, in rect: CGRect) {

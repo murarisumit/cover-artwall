@@ -5,9 +5,18 @@ playing into your desktop wallpaper: a large, crisp cover centered over a
 color gradient pulled from the art itself. It does one job — no music
 playback, no library browsing, just wallpaper.
 
-Spotify is the only source today. The app is built around a small
-`NowPlayingSource` protocol so more sources (Apple Music, etc.) are a matter
-of writing one new file, not restructuring the app — see
+**Spotify** and **Apple Music** are supported today. By default the app
+picks whichever one is actually playing; if you keep both open you can pin
+a source from the menu.
+
+With more than one display connected, the menu also gets a **Displays**
+section: keep the wallpaper on all of them, or pick just the ones you
+want. Each display is rendered at its own size and aspect ratio, and a
+display you switch off gets its previous wallpaper back.
+
+Everything runs against a small `NowPlayingSource` protocol, so another
+source (YouTube Music, Bandcamp, ...) is one new file plus one line in
+`SourceRegistry` — see
 [`App/Sources/CoverArtwall/Sources/NowPlayingSource.swift`](App/Sources/CoverArtwall/Sources/NowPlayingSource.swift).
 
 ## Install
@@ -29,9 +38,10 @@ Gatekeeper blocks the first launch. Fix it once with either:
 - Right-click the app in Finder -> **Open** -> **Open** again in the dialog, or
 - `xattr -cr "/Applications/Cover Artwall.app"` in Terminal.
 
-After that it launches normally. The first time it reads Spotify's now
+After that it launches normally. The first time it reads a music app's now
 playing track, macOS will also ask for **Automation** permission — allow it
-(System Settings -> Privacy & Security -> Automation).
+(System Settings -> Privacy & Security -> Automation). You'll get one prompt
+per music app, the first time each one is read.
 
 ## Migrating from the old CLI script
 
