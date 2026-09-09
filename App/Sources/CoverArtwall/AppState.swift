@@ -286,8 +286,11 @@ final class AppState: ObservableObject {
             return lhsDate > rhsDate
         }
 
-        // 25 tracks' worth of history, one file per distinct display size.
-        for stale in sorted.dropFirst(25 * distinctRenderedSizes) {
+        // 10 tracks' worth of history, one file per distinct display size.
+        // Counted in tracks rather than files so a multi-display desk keeps
+        // the same amount of history as a laptop, and so the files that are
+        // currently on the desktop are never the ones dropped.
+        for stale in sorted.dropFirst(10 * distinctRenderedSizes) {
             try? FileManager.default.removeItem(at: stale)
         }
     }
