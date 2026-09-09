@@ -26,6 +26,22 @@ final class AppState: ObservableObject {
         didSet { UserDefaults.standard.set(isAutoUpdateEnabled, forKey: Keys.autoUpdate) }
     }
 
+    /// Whether pausing or quitting the music hands every display back the
+    /// wallpaper it had before. Off by default: putting cover art on the
+    /// desktop is the app's whole job, so silently undoing that during a
+    /// pause is a bigger surprise than leaving the last cover up.
+    @Published var restoresWallpaperWhenIdle: Bool {
+        didSet {
+            guard restoresWallpaperWhenIdle != oldValue else { return }
+            UserDefaults.standard.set(restoresWallpaperWhenIdle, forKey: Keys.restoreWhenIdle)
+            // Switching it on while already paused should take effect now
+            // rather than after another full delay.
+            if restoresWallpaperWhenIdle, currentTrack == nil {
+                restoreOriginalWallpapers()
+            }
+        }
+    }
+
     /// Which displays get the wallpaper. Changing it re-renders straight
     /// away (sizes differ per display) and hands any display that just
     /// dropped out back its previous wallpaper.
@@ -60,6 +76,9 @@ final class AppState: ObservableObject {
     private var pollTimer: Timer?
     private var lastArtworkKey: String?
     private var desktopSync: DesktopSyncObserver?
+    /// When something was last actually playing, used to decide whether a
+    /// silence has gone on long enough to restore the wallpaper.
+    private var lastPlayedAt: Date?
     /// The last cover art we rendered, kept so a display or Space change
     /// can re-render without asking the source for the artwork again.
     private var lastCover: (image: NSImage, artworkKey: String)?
@@ -69,8 +88,15 @@ final class AppState: ObservableObject {
     /// number of tracks, not of files.
     private var distinctRenderedSizes = 1
 
+    /// How long nothing may be playing before the displays are handed back
+    /// their own wallpaper. Long enough to sit out a track skip, an ad
+    /// break, or the gap between albums — swapping the desktop back and
+    /// forth across those would be worse than leaving the last cover up.
+    private static let idleRestoreDelay: TimeInterval = 90
+
     private enum Keys {
         static let autoUpdate = "isAutoUpdateEnabled"
+        static let restoreWhenIdle = "restoresWallpaperWhenIdle"
         static let sourceSelection = "sourceSelection"
         static let displaySelection = "displaySelection"
     }
@@ -83,6 +109,7 @@ final class AppState: ObservableObject {
         wallpaperSetter = WallpaperSetter(cacheDirectory: cacheDirectory)
         sources = SourceRegistry.makeSources()
         isAutoUpdateEnabled = UserDefaults.standard.object(forKey: Keys.autoUpdate) as? Bool ?? true
+        restoresWallpaperWhenIdle = UserDefaults.standard.bool(forKey: Keys.restoreWhenIdle)
         sourceSelection = SourceSelection(
             persistedValue: UserDefaults.standard.string(forKey: Keys.sourceSelection)
         )
@@ -179,9 +206,38 @@ final class AppState: ObservableObject {
         let track = resolveCurrentTrack()
         currentTrack = track
 
-        guard let track, track.artworkKey != lastArtworkKey else { return }
+        guard let track else {
+            restoreIfIdleLongEnough()
+            return
+        }
+
+        lastPlayedAt = Date()
+        guard track.artworkKey != lastArtworkKey else { return }
         lastArtworkKey = track.artworkKey
         Task { await applyWallpaper(for: track) }
+    }
+
+    private func restoreIfIdleLongEnough() {
+        guard restoresWallpaperWhenIdle, !appliedImageURLs.isEmpty else { return }
+        // No poll runs while the screens are asleep, so `lastPlayedAt` stays
+        // where playback left it — a Mac that wakes hours later restores on
+        // the first poll instead of waiting out the delay all over again.
+        guard let lastPlayedAt,
+              Date().timeIntervalSince(lastPlayedAt) >= Self.idleRestoreDelay else { return }
+        restoreOriginalWallpapers()
+    }
+
+    /// Puts back what each display was showing before the app took it over,
+    /// then forgets everything about the wallpaper that was applied — so
+    /// playing again, even the same track, renders and applies afresh
+    /// rather than being skipped as unchanged.
+    private func restoreOriginalWallpapers() {
+        wallpaperSetter.restore(displayIDs: Set(appliedImageURLs.keys))
+        appliedImageURLs = [:]
+        currentWallpaperImage = nil
+        lastArtworkKey = nil
+        lastCover = nil
+        lastPlayedAt = nil
     }
 
     /// Pinned: ask that one source. Automatic: first registered source

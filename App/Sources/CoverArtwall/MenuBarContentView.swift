@@ -42,6 +42,8 @@ struct MenuBarContentView: View {
 
             Toggle("Update wallpaper automatically", isOn: $appState.isAutoUpdateEnabled)
 
+            Toggle("Restore my wallpaper when paused", isOn: $appState.restoresWallpaperWhenIdle)
+
             if appState.availableDisplays.count > 1 {
                 displayPicker
             }
