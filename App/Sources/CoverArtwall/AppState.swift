@@ -76,6 +76,7 @@ final class AppState: ObservableObject {
     private var pollTimer: Timer?
     private var lastArtworkKey: String?
     private var desktopSync: DesktopSyncObserver?
+    private var screenActivity: ScreenActivityObserver?
     /// When something was last actually playing, used to decide whether a
     /// silence has gone on long enough to restore the wallpaper.
     private var lastPlayedAt: Date?
@@ -129,6 +130,10 @@ final class AppState: ObservableObject {
         desktopSync = DesktopSyncObserver(
             onSpaceChange: { [weak self] in self?.reapplyAppliedWallpapers() },
             onDisplayChange: { [weak self] in self?.displayLayoutChanged() }
+        )
+        screenActivity = ScreenActivityObserver(
+            onIdle: { [weak self] in self?.setPollingSuspended(true) },
+            onActive: { [weak self] in self?.setPollingSuspended(false) }
         )
 
         startPolling()
@@ -198,6 +203,22 @@ final class AppState: ObservableObject {
         RunLoop.main.add(timer, forMode: .common)
         pollTimer = timer
         poll()
+    }
+
+    /// Stops the timer outright while the screens are asleep or locked,
+    /// rather than keeping it running and skipping the work: an invalidated
+    /// timer lets the process actually idle, and it stops poking the music
+    /// app with an Apple Event every few seconds for a wallpaper nobody can
+    /// currently see.
+    private func setPollingSuspended(_ suspended: Bool) {
+        if suspended {
+            pollTimer?.invalidate()
+            pollTimer = nil
+        } else if pollTimer == nil {
+            // `startPolling` polls straight away, so the wallpaper is caught
+            // up by the time the desktop is back on screen.
+            startPolling()
+        }
     }
 
     private func poll() {
