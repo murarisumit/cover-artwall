@@ -35,6 +35,11 @@ enum WallpaperCompositor {
         let context = NSGraphicsContext(cgContext: cgContext, flipped: false)
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = context
+        // Cover art arrives smaller than the size it's drawn at (Spotify
+        // tops out around 1429px against a ~1900px draw), so the upscale is
+        // the quality bottleneck. The default interpolation is tuned for
+        // speed; this is one image per track, so pay for the better filter.
+        context.imageInterpolation = .high
 
         // The rest of the screen is a smooth vertical gradient built from
         // the cover's own dominant color — no muddy blurred backdrop.
