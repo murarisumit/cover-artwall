@@ -103,9 +103,9 @@ final class AppState: ObservableObject {
     }
 
     init() {
-        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        cacheDirectory = caches.appendingPathComponent("CoverArtwall", isDirectory: true)
+        cacheDirectory = Self.wallpaperDirectory()
         try? FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+        Self.removeLegacyCacheDirectory()
 
         wallpaperSetter = WallpaperSetter(cacheDirectory: cacheDirectory)
         sources = SourceRegistry.makeSources()
@@ -137,6 +137,36 @@ final class AppState: ObservableObject {
         )
 
         startPolling()
+    }
+
+    /// Where rendered wallpapers are written.
+    ///
+    /// Not a caches directory, despite being pure cache. WallpaperAgent --
+    /// the sandboxed macOS process that actually paints the desktop -- can't
+    /// read anything under ~/Library, so handing it a path there makes it
+    /// fail with "Failed to create image source" and fall back to a blurred
+    /// proxy of the image. The lock screen renders from a different path and
+    /// looks correct, which makes the failure easy to misread as a rendering
+    /// bug rather than a permissions one.
+    ///
+    /// ~/Pictures is somewhere the agent can open, and isn't purged out from
+    /// under an applied wallpaper the way a caches directory can be. Being
+    /// user-visible is a fair trade: it's where images belong, and the prune
+    /// keeps it to ten tracks.
+    private static func wallpaperDirectory() -> URL {
+        let pictures = FileManager.default.urls(for: .picturesDirectory, in: .userDomainMask)[0]
+        return pictures.appendingPathComponent("Cover Artwall", isDirectory: true)
+    }
+
+    /// Earlier versions wrote to ~/Library/Caches/CoverArtwall, which is
+    /// exactly the unreadable location above. Nothing in there is worth
+    /// migrating -- every file re-renders from the source artwork -- so it's
+    /// removed rather than moved.
+    private static func removeLegacyCacheDirectory() {
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        try? FileManager.default.removeItem(
+            at: caches.appendingPathComponent("CoverArtwall", isDirectory: true)
+        )
     }
 
     func setLaunchAtLogin(_ enabled: Bool) {
