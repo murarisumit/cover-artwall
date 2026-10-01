@@ -15,7 +15,7 @@ of writing one new file, not restructuring the app — see
 **Homebrew** (once a tap is published — see [`Casks/cover-artwall.rb`](Casks/cover-artwall.rb)):
 
 ```zsh
-brew tap OWNER/tap
+brew tap murarisumit/tap
 brew install --cask cover-artwall
 ```
 
