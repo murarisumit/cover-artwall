@@ -23,6 +23,6 @@
   <key>NSHighResolutionCapable</key>
   <true/>
   <key>NSAppleEventsUsageDescription</key>
-  <string>Cover Artwall reads what's currently playing in apps like Spotify so it can turn the cover art into your desktop wallpaper.</string>
+  <string>Cover Artwall reads what's currently playing in your music apps, such as Spotify and Apple Music, so it can turn the cover art into your desktop wallpaper.</string>
 </dict>
 </plist>

@@ -32,6 +32,6 @@ cask "cover-artwall" do
   app "Cover Artwall.app"
 
   zap trash: [
-    "~/Library/Caches/CoverArtwall",
+    "~/Pictures/Cover Artwall",
   ]
 end
